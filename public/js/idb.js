@@ -22,7 +22,7 @@ request.onerror = function(event) {
     console.log(event.target.errorCode);
   };
 
-  // This function will be executed if we attempt to submit a new pizza and there's no internet connection
+  // This function will be executed if we attempt to submit a new transaction and there's no internet connection
 function saveRecord(record) {
     // open a new transaction with the database with read and write permissions 
     const transaction = db.transaction(['new_data'], 'readwrite');
@@ -33,3 +33,48 @@ function saveRecord(record) {
     // add record to your store with add method
     dataObjectStore.add(record);
   }
+
+function uploadTransaction(){
+   // open a transaction on your db
+   const transaction = db.transaction(['new_data'], 'readwrite');
+
+   // access your object store
+   const dataObjectStore = transaction.objectStore('new_data');
+ 
+   // get all records from store and set to a variable
+   const getAll = dataObjectStore.getAll();
+   // upon a successful .getAll() execution, run this function
+getAll.onsuccess = function() {
+  // if there was data in indexedDb's store, let's send it to the api server
+  if (getAll.result.length > 0) {
+    fetch('/api/transaction', {
+      method: 'POST',
+      body: JSON.stringify(getAll.result),
+      headers: {
+        Accept: 'application/json, text/plain, */*',
+        'Content-Type': 'application/json'
+      }
+    })
+      .then(response => response.json())
+      .then(serverResponse => {
+        if (serverResponse.message) {
+          throw new Error(serverResponse);
+        }
+        // open one more transaction
+        const transaction = db.transaction(['new_data'], 'readwrite');
+        // access the new_pizza object store
+        const dataObjectStore = transaction.objectStore('new_data');
+        // clear all items in your store
+        dataObjectStore.clear();
+
+        alert('All saved transaction data has been submitted!');
+      })
+      .catch(err => {
+        console.log(err);
+      });
+  }
+};
+}
+
+// listen for app coming back online
+window.addEventListener('online', uploadTransaction);
